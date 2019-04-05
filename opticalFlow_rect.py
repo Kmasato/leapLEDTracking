@@ -5,8 +5,8 @@ import leapuvc
 #Leap UVCの設定
 leap = leapuvc.leapImageThread()
 leap.start()
-leap.setExposure(2000)
-leap.setGain(10)
+leap.setExposure(1000)
+leap.setGain(50)
 leap.setCenterLED(False)
 leap.setRightLED(False)
 leap.setLeftLED(False)
