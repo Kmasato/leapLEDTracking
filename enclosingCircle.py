@@ -6,7 +6,10 @@ import leapuvc
 leap = leapuvc.leapImageThread()
 leap.start()
 leap.setExposure(2000)
-leap.setGain(40)
+leap.setGain(20)
+leap.setCenterLED(False)
+leap.setRightLED(False)
+leap.setLeftLED(False)
 
 
 while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
