@@ -6,7 +6,7 @@ import leapuvc
 leap = leapuvc.leapImageThread()
 leap.start()
 leap.setExposure(2000)
-leap.setGain(20)
+leap.setGain(10)
 leap.setCenterLED(False)
 leap.setRightLED(False)
 leap.setLeftLED(False)
@@ -51,13 +51,24 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
             #オプティカルフローを検出した特徴点を識別(0:検出してない，1:検出した)
             good_prev = feature_prev[status == 1]
             good_next = feature_next[status == 1]
-
+            
+            #オプティカルフロー結果の描画
             for i, (next_point, prev_point) in enumerate(zip(good_next, good_prev)):
                 prev_x, prev_y = prev_point.ravel()
                 next_x, next_y = next_point.ravel()
-                mask = cv2.line(mask, (next_x, next_y), (prev_x, prev_y), color[i].tolist(),2)
+                #軌跡の描画
+                #mask = cv2.line(mask, (next_x, next_y), (prev_x, prev_y), color[i].tolist(),2)
                 colorFrame = cv2.circle(colorFrame,(next_x, next_y), 5, color[i].tolist(), -1)
             img = cv2.add(colorFrame, mask)
+
+            #特徴点4点で矩形を描画
+            if len(good_next) == 4:
+                rect = cv2.minAreaRect(good_next)
+                (cx, cy), (width, height), angle = rect
+                rect_points = cv2.boxPoints(rect).astype(np.int32)
+                rect_points = rect_points.reshape((-1,1,2))
+                img = cv2.polylines(img, [rect_points], True, (0,0,255),3)
+
             cv2.imshow('window', img)
 
             gray_prev = gray_next.copy()
