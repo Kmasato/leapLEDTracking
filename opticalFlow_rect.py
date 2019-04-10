@@ -5,7 +5,7 @@ import leapuvc
 #Leap UVCの設定
 leap = leapuvc.leapImageThread()
 leap.start()
-leap.setExposure(1000)
+leap.setExposure(500)
 leap.setGain(50)
 leap.setCenterLED(False)
 leap.setRightLED(False)
@@ -28,7 +28,11 @@ gray_prev = leftRightImage[0]
 feature_prev = cv2.goodFeaturesToTrack(gray_prev, mask = None, **feature_params)
 colorFrame = cv2.cvtColor(gray_prev, cv2.COLOR_GRAY2BGR)
 mask = np.zeros_like(colorFrame)
-
+print(leftRightImage.shape)
+print(feature_prev.shape)
+print(colorFrame.shape)
+print(mask.shape)
+print(type(mask[0][0][0]))
 
 while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
     frame, leftRightImage = leap.read()
@@ -60,7 +64,7 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
                 #mask = cv2.line(mask, (next_x, next_y), (prev_x, prev_y), color[i].tolist(),2)
                 colorFrame = cv2.circle(colorFrame,(next_x, next_y), 5, color[i].tolist(), -1)
             img = cv2.add(colorFrame, mask)
-
+            
             #特徴点4点で矩形を描画
             if len(good_next) == 4:
                 rect = cv2.minAreaRect(good_next)
