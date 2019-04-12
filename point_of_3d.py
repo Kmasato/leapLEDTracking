@@ -44,6 +44,51 @@ for i in range(2):
     colorFrame[i] = cv2.cvtColor(gray_prev[i], cv2.COLOR_GRAY2BGR)
     mask[i] = np.zeros_like(colorFrame[i])
 
+def distImage(imgsrc, cam):
+    cam_mat = leap.calibration[cam]["extrinsics"]["cameraMatrix"]
+    dist_coef = leap.calibration[cam]["intrinsics"]["distCoeffs"]
+
+    distimage = cv2.undistort(leftRightImage[0], cam_mat, dist_coef)
+    return distimage
+
+def OpticalFlow(cam):
+    global feature_prev_l, feature_prev_r
+    if(cam == 'left'):
+        leftright = 0
+        #オプティカルフロー検出
+        feature_next, status, err = cv2.calcOpticalFlowPyrLK(gray_prev[leftright], gray_next[leftright], feature_prev_l, None, **lk_params)
+        #オプティカルフローを検出した特徴点を識別(0:検出してない，1:検出した)
+        good_prev = feature_prev_l[status == 1]
+        good_next = feature_next[status == 1]
+
+    else:
+        leftright = 1
+        #オプティカルフロー検出
+        feature_next, status, err = cv2.calcOpticalFlowPyrLK(gray_prev[leftright], gray_next[leftright], feature_prev_r, None, **lk_params)
+        #オプティカルフローを検出した特徴点を識別(0:検出してない，1:検出した)
+        good_prev = feature_prev_r[status == 1]
+        good_next = feature_next[status == 1]
+    
+
+
+    #オプティカルフロー結果の描画
+    for j, (next_point, prev_point) in enumerate(zip(good_next, good_prev)):
+        prev_x, prev_y = prev_point.ravel()
+        next_x, next_y = next_point.ravel()
+        #軌跡の描画
+        #mask = cv2.line(mask, (next_x, next_y), (prev_x, prev_y), color[i].tolist(),2)
+        colorFrame[leftright] = cv2.putText(colorFrame[leftright], str(j), (next_x, next_y), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 1.0, color[j].tolist())
+        colorFrame[leftright] = cv2.circle(colorFrame[leftright],(next_x, next_y), 5, color[j].tolist(), -1)
+    img[leftright] = cv2.add(colorFrame[leftright], mask[leftright])
+
+    #データの更新
+    gray_prev[i] = gray_next[i].copy()
+    if(cam == 'left'):
+        feature_prev_l = good_next.reshape(-1,1,2)
+    else:
+        feature_prev_r = good_next.reshape(-1,1,2)
+
+
 while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
     frame, leftRightImage = leap.read()
     while frame == True:
@@ -52,32 +97,11 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
             #グレースケールに変換
             #capImage = leftRightImage[0]
             #gray_next = cv2.cvtColor(capImage, cv2.COLOR_BGR2GRAY)
-            gray_next[i] = leftRightImage[i]
+            gray_next[i] = distImage(leftRightImage[i], cam) #一応歪み補正する
             colorFrame[i] = cv2.cvtColor(gray_next[i], cv2.COLOR_GRAY2BGR)
             img[i] = colorFrame[i]
 
-            if(cam == 'left'):
-                #オプティカルフロー検出
-                feature_next, status, err = cv2.calcOpticalFlowPyrLK(gray_prev[i], gray_next[i], feature_prev_l, None, **lk_params)
-                #オプティカルフローを検出した特徴点を識別(0:検出してない，1:検出した)
-                good_prev = feature_prev_l[status == 1]
-                good_next = feature_next[status == 1]
-
-            else:
-                #オプティカルフロー検出
-                feature_next, status, err = cv2.calcOpticalFlowPyrLK(gray_prev[i], gray_next[i], feature_prev_r, None, **lk_params)
-                #オプティカルフローを検出した特徴点を識別(0:検出してない，1:検出した)
-                good_prev = feature_prev_r[status == 1]
-                good_next = feature_next[status == 1]
-            
-            #オプティカルフロー結果の描画
-            for j, (next_point, prev_point) in enumerate(zip(good_next, good_prev)):
-                prev_x, prev_y = prev_point.ravel()
-                next_x, next_y = next_point.ravel()
-                #軌跡の描画
-                #mask = cv2.line(mask, (next_x, next_y), (prev_x, prev_y), color[i].tolist(),2)
-                colorFrame[i] = cv2.circle(colorFrame[i],(next_x, next_y), 5, color[j].tolist(), -1)
-            img[i] = cv2.add(colorFrame[i], mask[i])
+            OpticalFlow(cam)
 
             '''s
             #特徴点4点で矩形を描画
@@ -90,18 +114,6 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
             '''
 
             cv2.imshow('window'+str(i), img[i])
-
-            gray_prev[i] = gray_next[i].copy()
-            if(cam == 'left'):
-                feature_prev_l = good_next.reshape(-1,1,2)
-                #grayL = cv2.GaussianBlur(cv2.equalizeHist(cv2.cvtColor(img[0], cv2.COLOR_BGR2GRAY), (5,5), 0)
-            else:
-                feature_prev_r = good_next.reshape(-1,1,2)
-                #grayR = cv2.GaussianBlur(cv2.equalizeHist(cv2.cvtColor(img[1], cv2.COLOR_BGR2GRAY), (5,5), 0)
             
             frame, leftRightImage = leap.read()
         
-        #stereo = cv2.StereoBM(numDisparities=16, blockSize = 15)
-        #disparity = stereo.compute(grayL,grayR)
-        #cv2.imshow('disparity', disparity)
-    
