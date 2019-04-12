@@ -27,16 +27,14 @@ while(frame == False):
 
 #リストの初期化に問題
 gray_prev = np.zeros(leftRightImage.shape).astype(np.uint8)
+gray_next = np.zeros(leftRightImage.shape).astype(np.uint8)
 colorFrame =  np.empty((2, 480, 640, 3)).astype(np.uint8)
 mask = np.empty((2, 480, 640, 3)).astype(np.uint8)
 feature_prev_l = []
 feature_prev_r = []
 
 for i in range(2):
-    print(leftRightImage[i])
     gray_prev[i] = np.copy(leftRightImage[i])
-    print(type(gray_prev[0][0][0]))
-    print(type(leftRightImage[0][0][0]))
     if(i == 0):
         feature_prev_l = cv2.goodFeaturesToTrack(gray_prev[0], mask = None, **feature_params)
     else:
@@ -47,11 +45,8 @@ for i in range(2):
 
 while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
     frame, leftRightImage = leap.read()
-    gray_next = np.zeros(leftRightImage.shape).astype(np.uint8)
     while frame == True:
         for i, cam in enumerate(leap.cameras):
-            if(cam == 'right'):
-               break
 
             #グレースケールに変換
             #capImage = leftRightImage[0]
@@ -63,7 +58,6 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
             if(cam == 'left'):
                 #オプティカルフロー検出
                 feature_next, status, err = cv2.calcOpticalFlowPyrLK(gray_prev[i], gray_next[i], feature_prev_l, None, **lk_params)
-
                 #オプティカルフローを検出した特徴点を識別(0:検出してない，1:検出した)
                 good_prev = feature_prev_l[status == 1]
                 good_next = feature_next[status == 1]
@@ -71,11 +65,9 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
             else:
                 #オプティカルフロー検出
                 feature_next, status, err = cv2.calcOpticalFlowPyrLK(gray_prev[i], gray_next[i], feature_prev_r, None, **lk_params)
-
                 #オプティカルフローを検出した特徴点を識別(0:検出してない，1:検出した)
                 good_prev = feature_prev_r[status == 1]
                 good_next = feature_next[status == 1]
-                print('right')
             
             #オプティカルフロー結果の描画
             for j, (next_point, prev_point) in enumerate(zip(good_next, good_prev)):
@@ -98,7 +90,10 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
 
             cv2.imshow('window'+str(i), img)
 
-            gray_prev = gray_next.copy()
-            feature_prev = good_next.reshape(-1,1,2)
+            gray_prev[i] = gray_next[i].copy()
+            if(cam == 'left'):
+                feature_prev_l = good_next.reshape(-1,1,2)
+            else:
+                feature_prev_r = good_next.reshape(-1,1,2)
             frame, leftRightImage = leap.read()
     
