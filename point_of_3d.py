@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import leapuvc
+import ledpoint
 
 #Leap UVCの設定
 leap = leapuvc.leapImageThread()
@@ -24,8 +25,6 @@ frame = False
 #最初のフレーム処理
 while(frame == False):
     frame, leftRightImage = leap.read()
-
-
 gray_prev = np.zeros(leftRightImage.shape).astype(np.uint8)
 gray_next = np.zeros(leftRightImage.shape).astype(np.uint8)
 colorFrame =  np.empty((2, 480, 640, 3)).astype(np.uint8)
@@ -44,6 +43,11 @@ for i in range(2):
     colorFrame[i] = cv2.cvtColor(gray_prev[i], cv2.COLOR_GRAY2BGR)
     mask[i] = np.zeros_like(colorFrame[i])
 
+
+#LEDトラッカー
+trackers = []
+
+#歪み補正する関数
 def distImage(imgsrc, cam):
     cam_mat = leap.calibration[cam]["extrinsics"]["cameraMatrix"]
     dist_coef = leap.calibration[cam]["intrinsics"]["distCoeffs"]
@@ -51,6 +55,7 @@ def distImage(imgsrc, cam):
     distimage = cv2.undistort(leftRightImage[0], cam_mat, dist_coef)
     return distimage
 
+#オプティカルフローを計算する関数
 def OpticalFlow(cam):
     global feature_prev_l, feature_prev_r
     if(cam == 'left'):
@@ -68,8 +73,6 @@ def OpticalFlow(cam):
         #オプティカルフローを検出した特徴点を識別(0:検出してない，1:検出した)
         good_prev = feature_prev_r[status == 1]
         good_next = feature_next[status == 1]
-    
-
 
     #オプティカルフロー結果の描画
     for j, (next_point, prev_point) in enumerate(zip(good_next, good_prev)):
@@ -81,6 +84,16 @@ def OpticalFlow(cam):
         colorFrame[leftright] = cv2.circle(colorFrame[leftright],(next_x, next_y), 5, color[j].tolist(), -1)
     img[leftright] = cv2.add(colorFrame[leftright], mask[leftright])
 
+    '''
+    #特徴点4点で矩形を描画
+    if len(good_next) >= 0:
+        rect = cv2.minAreaRect(good_next)
+        (cx, cy), (width, height), angle = rect
+        rect_points = cv2.boxPoints(rect).astype(np.int32)
+        rect_points = rect_points.reshape((-1,1,2))
+        img = cv2.polylines(img, [rect_points], True, (0,0,255),3)
+    '''
+
     #データの更新
     gray_prev[i] = gray_next[i].copy()
     if(cam == 'left'):
@@ -89,31 +102,41 @@ def OpticalFlow(cam):
         feature_prev_r = good_next.reshape(-1,1,2)
 
 
+#LとRのLEDのインデックスを対応づける
+def estimateLedPoint():
+    global feature_prev_l, feature_prev_r
+
+    print(feature_prev_r)
+    for index,l_point in enumerate(feature_prev_l):
+        neighbourindex = searchNeighbourhood(l_point, feature_prev_r)
+        print(feature_prev_r[neighbourindex])
+        led = ledpoint.trackingPoint(index, neighbourindex, l_point, feature_prev_r[neighbourindex])
+        trackers.append(led)
+
+
+def searchNeighbourhood(l_point, r_points):
+    L = np.array([])
+    for p in r_points:
+        L = np.append(L, np.linalg.norm(p-l_point))
+    #print(np.argmin(L))
+    return np.argmin(L)
+
+estimateLedPoint()
+print(type(trackers[0]))
+for led in trackers:
+    led.printId()
+    #led.calculateDepth(led.leftPoint, led.rightPoint)
+
 while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
     frame, leftRightImage = leap.read()
     while frame == True:
         for i, cam in enumerate(leap.cameras):
-
-            #グレースケールに変換
-            #capImage = leftRightImage[0]
-            #gray_next = cv2.cvtColor(capImage, cv2.COLOR_BGR2GRAY)
             gray_next[i] = distImage(leftRightImage[i], cam) #一応歪み補正する
             colorFrame[i] = cv2.cvtColor(gray_next[i], cv2.COLOR_GRAY2BGR)
             img[i] = colorFrame[i]
 
             OpticalFlow(cam)
 
-            '''s
-            #特徴点4点で矩形を描画
-            if len(good_next) >= 0:
-                rect = cv2.minAreaRect(good_next)
-                (cx, cy), (width, height), angle = rect
-                rect_points = cv2.boxPoints(rect).astype(np.int32)
-                rect_points = rect_points.reshape((-1,1,2))
-                img = cv2.polylines(img, [rect_points], True, (0,0,255),3)
-            '''
-
             cv2.imshow('window'+str(i), img[i])
             
             frame, leftRightImage = leap.read()
-        
