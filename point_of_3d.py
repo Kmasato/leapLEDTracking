@@ -6,7 +6,7 @@ import ledpoint
 #Leap UVCの設定
 leap = leapuvc.leapImageThread()
 leap.start()
-leap.setExposure(1000)
+leap.setExposure(50)
 leap.setGain(50)
 leap.setCenterLED(False)
 leap.setRightLED(False)
@@ -49,8 +49,12 @@ trackers = []
 
 #歪み補正する関数
 def distImage(imgsrc, cam):
+    '''
     cam_mat = leap.calibration[cam]["extrinsics"]["cameraMatrix"]
     dist_coef = leap.calibration[cam]["intrinsics"]["distCoeffs"]
+    '''
+    cam_mat = np.loadtxt('mtx03.csv',delimiter=',')
+    dist_coef = np.loadtxt('dist.csv',delimiter=',')
 
     distimage = cv2.undistort(leftRightImage[0], cam_mat, dist_coef)
     return distimage
@@ -122,10 +126,9 @@ def searchNeighbourhood(l_point, r_points):
     return np.argmin(L)
 
 estimateLedPoint()
-print(type(trackers[0]))
 for led in trackers:
     led.printId()
-    #led.calculateDepth(led.leftPoint, led.rightPoint)
+    led.calculateDepth(led.leftPoint, led.rightPoint)
 
 while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
     frame, leftRightImage = leap.read()
@@ -136,7 +139,10 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
             img[i] = colorFrame[i]
 
             OpticalFlow(cam)
-
+            '''
+            for led in trackers:
+                led.update(feature_prev_l[led.leftId], feature_prev_r[led.rightId])
+            '''
             cv2.imshow('window'+str(i), img[i])
             
             frame, leftRightImage = leap.read()
