@@ -6,9 +6,9 @@ import ledpoint
 #Leap UVCの設定
 leap = leapuvc.leapImageThread()
 leap.start()
-leap.setExposure(50)
+leap.setExposure(8000)
 #leap.setExposure(20000)
-leap.setGain(50)
+leap.setGain(100)
 leap.setCenterLED(False)
 leap.setRightLED(False)
 leap.setLeftLED(False)
@@ -141,9 +141,13 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
 
             OpticalFlow(cam)
 
-            
-            for led in trackers:
+            for j,led in enumerate(trackers):
                 led.update(feature_prev_l[led.leftId], feature_prev_r[led.rightId])
+                print(feature_prev_l[led.leftId][0][0])
+                #img[i] = cv2.putText(img[i],str(led.z), (feature_prev_l[led.leftId][0][0],feature_prev_l[led.leftId][0][1]), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, color[j].tolist())
+                x = (led.leftPoint[0][0] - 40).astype(np.float32)
+                y = (led.leftPoint[0][1] + 20).astype(np.float32)
+                img[i] = cv2.putText(img[i],"("+str(int(x))+","+str(int(y))+","+str(int(led.z))+")", (x, y), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, color[j].tolist())
             
             cv2.imshow('window'+str(i), img[i])
             #print(i)

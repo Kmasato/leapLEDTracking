@@ -27,8 +27,7 @@ class trackingPoint():
     def update(self, lPoint, rPoint):
         self.leftPoint = lPoint
         self.rightPoint = rPoint
-        self.calculateDepth(self.leftPoint, self.rightPoint)
-        return 0
+        self.z = self.calculateDepth(self.leftPoint, self.rightPoint)
     
     def printId(self):
         print(self.leftId, self.rightId)
