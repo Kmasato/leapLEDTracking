@@ -7,6 +7,7 @@ import ledpoint
 leap = leapuvc.leapImageThread()
 leap.start()
 leap.setExposure(50)
+#leap.setExposure(20000)
 leap.setGain(50)
 leap.setCenterLED(False)
 leap.setRightLED(False)
@@ -49,14 +50,14 @@ trackers = []
 
 #歪み補正する関数
 def distImage(imgsrc, cam):
-    '''
-    cam_mat = leap.calibration[cam]["extrinsics"]["cameraMatrix"]
-    dist_coef = leap.calibration[cam]["intrinsics"]["distCoeffs"]
-    '''
-    cam_mat = np.loadtxt('mtx03.csv',delimiter=',')
+    
+    #cam_mat = leap.calibration[cam]["extrinsics"]["cameraMatrix"]
+    #dist_coef = leap.calibration[cam]["intrinsics"]["distCoeffs"]
+    
+    cam_mat = np.loadtxt('mtx.csv',delimiter=',')
     dist_coef = np.loadtxt('dist.csv',delimiter=',')
 
-    distimage = cv2.undistort(leftRightImage[0], cam_mat, dist_coef)
+    distimage = cv2.undistort(imgsrc, cam_mat, dist_coef)
     return distimage
 
 #オプティカルフローを計算する関数
@@ -139,10 +140,12 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
             img[i] = colorFrame[i]
 
             OpticalFlow(cam)
-            '''
+
+            
             for led in trackers:
                 led.update(feature_prev_l[led.leftId], feature_prev_r[led.rightId])
-            '''
+            
             cv2.imshow('window'+str(i), img[i])
+            #print(i)
             
             frame, leftRightImage = leap.read()
