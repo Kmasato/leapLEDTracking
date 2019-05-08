@@ -6,7 +6,7 @@ import ledpoint
 #Leap UVCの設定
 leap = leapuvc.leapImageThread()
 leap.start()
-leap.setExposure(8000)
+leap.setExposure(300)
 #leap.setExposure(20000)
 leap.setGain(100)
 leap.setCenterLED(False)
@@ -17,7 +17,7 @@ leap.setLeftLED(False)
 feature_params = dict(maxCorners = 100, qualityLevel = 0.3, minDistance = 7, blockSize = 7)
 
 #Lucas-Kanade法のパラメータ
-lk_params = dict(winSize = (15,15), maxLevel = 2, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+lk_params = dict(winSize = (15,15), maxLevel = 3, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
 #ランダムに色を100個生成
 color = np.random.randint(0,255,(100,3))
@@ -34,28 +34,15 @@ mask = np.empty((2, 480, 640, 3)).astype(np.uint8)
 feature_prev_l = []
 feature_prev_r = []
 
-for i in range(2):
-    gray_prev[i] = np.copy(leftRightImage[i])
-    if(i == 0):
-        feature_prev_l = cv2.goodFeaturesToTrack(gray_prev[0], mask = None, **feature_params)
-    else:
-        feature_prev_r = cv2.goodFeaturesToTrack(gray_prev[1], mask = None, **feature_params)
-    
-    colorFrame[i] = cv2.cvtColor(gray_prev[i], cv2.COLOR_GRAY2BGR)
-    mask[i] = np.zeros_like(colorFrame[i])
-
-
-#LEDトラッカー
-trackers = []
 
 #歪み補正する関数
 def distImage(imgsrc, cam):
     
-    #cam_mat = leap.calibration[cam]["extrinsics"]["cameraMatrix"]
-    #dist_coef = leap.calibration[cam]["intrinsics"]["distCoeffs"]
+    cam_mat = leap.calibration[cam]["extrinsics"]["cameraMatrix"]
+    dist_coef = leap.calibration[cam]["intrinsics"]["distCoeffs"]
     
-    cam_mat = np.loadtxt('mtx.csv',delimiter=',')
-    dist_coef = np.loadtxt('dist.csv',delimiter=',')
+    #cam_mat = np.loadtxt('mtx.csv',delimiter=',')
+    #dist_coef = np.loadtxt('dist.csv',delimiter=',')
 
     distimage = cv2.undistort(imgsrc, cam_mat, dist_coef)
     return distimage
@@ -110,25 +97,70 @@ def OpticalFlow(cam):
 #LとRのLEDのインデックスを対応づける
 def estimateLedPoint():
     global feature_prev_l, feature_prev_r
-
-    print(feature_prev_r)
+    
+    distanceMatching(feature_prev_l, feature_prev_r)
+    
     for index,l_point in enumerate(feature_prev_l):
         neighbourindex = searchNeighbourhood(l_point, feature_prev_r)
-        print(feature_prev_r[neighbourindex])
+        #print(feature_prev_r[neighbourindex])
         led = ledpoint.trackingPoint(index, neighbourindex, l_point, feature_prev_r[neighbourindex])
         trackers.append(led)
+
+def distanceMatching(feature_prev_l, feature_prev_r):
+    distanceOfLeftPos = np.empty((0,2))
+    distanceOfRightPos =  np.empty((0,2))
+    indexList = np.array([])
+    for i, (lp, rp )in enumerate(zip(feature_prev_l, feature_prev_r)):
+        distanceOfLeftPos = np.append(distanceOfLeftPos, np.array([[i, np.linalg.norm(lp)]]), axis=0)
+        distanceOfRightPos = np.append(distanceOfRightPos, np.array([[i, np.linalg.norm(rp)]]), axis=0)
+    
+    print(distanceOfLeftPos)
+    print(distanceOfRightPos)
+
+    distanceOfLeftPos = sorted(distanceOfLeftPos, key=lambda x:x[1])
+    distanceOfRightPos = sorted(distanceOfRightPos, key=lambda x:x[1])
+
+    print(distanceOfLeftPos)
+    print(distanceOfRightPos)
+    
+    indexmatch = list(zip(distanceOfLeftPos[:][0], distanceOfRightPos[:][0]))
+
+    print(indexmatch)
 
 
 def searchNeighbourhood(l_point, r_points):
     L = np.array([])
     for p in r_points:
-        L = np.append(L, np.linalg.norm(p-l_point))
-    #print(np.argmin(L))
+        L = np.append(L, np.linalg.norm(p))
+    print(L)
+    print(np.argmin(L))
     return np.argmin(L)
+
+
+# 左右の特徴量の数が同じになるまで繰り返す．
+while True:
+    frame, leftRightImage = leap.read()
+    for i in range(2):
+        gray_prev[i] = np.copy(leftRightImage[i])
+        if(i == 0):
+            feature_prev_l = cv2.goodFeaturesToTrack(gray_prev[0], mask = None, **feature_params)
+        else:
+            feature_prev_r = cv2.goodFeaturesToTrack(gray_prev[1], mask = None, **feature_params)
+        
+        colorFrame[i] = cv2.cvtColor(gray_prev[i], cv2.COLOR_GRAY2BGR)
+        mask[i] = np.zeros_like(colorFrame[i])
+
+    #print(str(len(feature_prev_l))+","+str(len(feature_prev_r)))
+    if len(feature_prev_l) == len(feature_prev_r):
+        break
+
+
+#LEDトラッカー
+trackers = []
 
 estimateLedPoint()
 for led in trackers:
-    led.printId()
+    #led.printId()
     led.calculateDepth(led.leftPoint, led.rightPoint)
 
 while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
@@ -142,12 +174,14 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
             OpticalFlow(cam)
 
             for j,led in enumerate(trackers):
+                #led.printId()
                 led.update(feature_prev_l[led.leftId], feature_prev_r[led.rightId])
-                print(feature_prev_l[led.leftId][0][0])
                 #img[i] = cv2.putText(img[i],str(led.z), (feature_prev_l[led.leftId][0][0],feature_prev_l[led.leftId][0][1]), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, color[j].tolist())
+                #print(feature_prev_r[j][0][0])
+                img[i] = cv2.circle(img[i],(feature_prev_r[j][0][0],feature_prev_r[j][0][1]), 5, color[j].tolist(), -1)
                 x = (led.leftPoint[0][0] - 40).astype(np.float32)
                 y = (led.leftPoint[0][1] + 20).astype(np.float32)
-                img[i] = cv2.putText(img[i],"("+str(int(x))+","+str(int(y))+","+str(int(led.z))+")", (x, y), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, color[j].tolist())
+                #img[i] = cv2.putText(img[i],"("+str(int(x))+","+str(int(y))+","+str(int(led.z))+")", (x, y), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, color[j].tolist())
             
             cv2.imshow('window'+str(i), img[i])
             #print(i)
