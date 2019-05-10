@@ -21,7 +21,7 @@ class trackingPoint():
         f = 133.8633575439453
         pixel = 7.5
         self.z = 3.9*f / (pixel * d) * coefficient + intercept
-        print(self.z)
+        #print(self.z)
         return self.z
 
     def update(self, lPoint, rPoint):
