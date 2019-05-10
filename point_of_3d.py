@@ -98,34 +98,40 @@ def OpticalFlow(cam):
 def estimateLedPoint():
     global feature_prev_l, feature_prev_r
     
-    distanceMatching(feature_prev_l, feature_prev_r)
+    matchedindex = distanceMatching(feature_prev_l, feature_prev_r)
+    print(matchedindex)
+    #matchedindex = list(map(int, matchedindex))
+    for index in matchedindex:
+        led = ledpoint.trackingPoint(index[0], index[1], feature_prev_l[index[0]], feature_prev_r[index[1]])
+        trackers.append(led)
     
+    '''
     for index,l_point in enumerate(feature_prev_l):
         neighbourindex = searchNeighbourhood(l_point, feature_prev_r)
         #print(feature_prev_r[neighbourindex])
         led = ledpoint.trackingPoint(index, neighbourindex, l_point, feature_prev_r[neighbourindex])
         trackers.append(led)
+    '''
 
 def distanceMatching(feature_prev_l, feature_prev_r):
-    distanceOfLeftPos = np.empty((0,2))
-    distanceOfRightPos =  np.empty((0,2))
+    distanceOfLeftPos = np.empty([0,2])
+    distanceOfRightPos =  np.empty([0,2])
     indexList = np.array([])
     for i, (lp, rp )in enumerate(zip(feature_prev_l, feature_prev_r)):
         distanceOfLeftPos = np.append(distanceOfLeftPos, np.array([[i, np.linalg.norm(lp)]]), axis=0)
         distanceOfRightPos = np.append(distanceOfRightPos, np.array([[i, np.linalg.norm(rp)]]), axis=0)
     
-    print(distanceOfLeftPos)
-    print(distanceOfRightPos)
-
     distanceOfLeftPos = sorted(distanceOfLeftPos, key=lambda x:x[1])
     distanceOfRightPos = sorted(distanceOfRightPos, key=lambda x:x[1])
 
-    print(distanceOfLeftPos)
-    print(distanceOfRightPos)
-    
-    indexmatch = list(zip(distanceOfLeftPos[:][0], distanceOfRightPos[:][0]))
+    LeftIndexList = list(map(lambda x: x[0], distanceOfLeftPos))
+    RightIndexList = list(map(lambda x: x[0], distanceOfRightPos))
 
-    print(indexmatch)
+    indexmatch = list(zip(LeftIndexList,RightIndexList))
+    indexmatch = np.vectorize(int)(indexmatch)
+
+    #print(indexmatch)
+    return indexmatch
 
 
 def searchNeighbourhood(l_point, r_points):
@@ -178,10 +184,10 @@ while((not (cv2.waitKey(1) & 0xFF == ord('q'))) and leap.running):
                 led.update(feature_prev_l[led.leftId], feature_prev_r[led.rightId])
                 #img[i] = cv2.putText(img[i],str(led.z), (feature_prev_l[led.leftId][0][0],feature_prev_l[led.leftId][0][1]), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, color[j].tolist())
                 #print(feature_prev_r[j][0][0])
-                img[i] = cv2.circle(img[i],(feature_prev_r[j][0][0],feature_prev_r[j][0][1]), 5, color[j].tolist(), -1)
+                #img[i] = cv2.circle(img[i],(feature_prev_r[j][0][0],feature_prev_r[j][0][1]), 5, color[j].tolist(), -1)
                 x = (led.leftPoint[0][0] - 40).astype(np.float32)
                 y = (led.leftPoint[0][1] + 20).astype(np.float32)
-                #img[i] = cv2.putText(img[i],"("+str(int(x))+","+str(int(y))+","+str(int(led.z))+")", (x, y), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, color[j].tolist())
+                img[i] = cv2.putText(img[i],"("+str(int(x))+","+str(int(y))+","+str(int(led.z))+")", (x, y), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, color[j].tolist())
             
             cv2.imshow('window'+str(i), img[i])
             #print(i)
