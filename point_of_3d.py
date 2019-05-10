@@ -104,14 +104,6 @@ def estimateLedPoint():
     for index in matchedindex:
         led = ledpoint.trackingPoint(index[0], index[1], feature_prev_l[index[0]], feature_prev_r[index[1]])
         trackers.append(led)
-    
-    '''
-    for index,l_point in enumerate(feature_prev_l):
-        neighbourindex = searchNeighbourhood(l_point, feature_prev_r)
-        #print(feature_prev_r[neighbourindex])
-        led = ledpoint.trackingPoint(index, neighbourindex, l_point, feature_prev_r[neighbourindex])
-        trackers.append(led)
-    '''
 
 def distanceMatching(feature_prev_l, feature_prev_r):
     distanceOfLeftPos = np.empty([0,2])
@@ -133,15 +125,7 @@ def distanceMatching(feature_prev_l, feature_prev_r):
     #print(indexmatch)
     return indexmatch
 
-
-def searchNeighbourhood(l_point, r_points):
-    L = np.array([])
-    for p in r_points:
-        L = np.append(L, np.linalg.norm(p))
-    print(L)
-    print(np.argmin(L))
-    return np.argmin(L)
-
+    
 
 # 左右の特徴量の数が同じになるまで繰り返す．
 while True:
